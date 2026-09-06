@@ -1,0 +1,13 @@
+{
+  "users": [
+    {
+      "id": "usr_admin",
+      "username": "admin",
+      "role": "admin",
+      "createdAt": "2026-09-06"
+    }
+  ],
+  "listings": [],
+  "orders": [],
+  "chats": []
+}

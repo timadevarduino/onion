@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Onimart — P2P Crypto Marketplace</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          },
+          colors: {
+            tg: {
+              bg: '#0e1621',
+              panel: '#17212b',
+              hover: '#202b36',
+              border: '#242f3d',
+              bubbleIn: '#182533',
+              bubbleOut: '#2b5278',
+              accent: '#5288c1',
+              textMuted: '#7f91a4'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #242f3d; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #5288c1; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-indigo-600 selection:text-white">
+
+  <!-- TOP STATUS BANNER (SHOWS IF REAL DISK SYNC IS ACTIVE) -->
+  <div id="connectionBanner" class="bg-slate-900 border-b border-slate-800 text-[11px] font-mono py-1.5 px-4 flex justify-between items-center text-slate-400">
+    <div class="flex items-center gap-2">
+      <span id="connIndicator" class="h-2 w-2 rounded-full bg-emerald-500"></span>
+      <span id="connStatusText">Connecting to onimart.json backend...</span>
+    </div>
+    <span class="text-slate-500 hidden sm:inline">Decentralized P2P Rails</span>
+  </div>
+
+  <!-- NAVIGATION -->
+  <nav class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <div class="flex items-center gap-6">
+          <div class="flex items-center gap-2.5 cursor-pointer" onclick="switchTab('marketplace')">
+            <div class="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-indigo-900/30">
+              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+            </div>
+            <span class="text-xl font-bold tracking-tight text-white">Onimart</span>
+          </div>
+
+          <div class="hidden md:flex items-center gap-1 text-sm font-medium">
+            <button onclick="switchTab('marketplace')" id="nav-marketplace" class="px-3 py-2 rounded-md text-white bg-slate-800 transition">Marketplace</button>
+            <button onclick="switchTab('vendor')" id="nav-vendor" class="px-3 py-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition">Vendor Studio</button>
+            <button onclick="switchTab('messenger')" id="nav-messenger" class="px-3 py-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center gap-1.5">
+              <span>Messages</span>
+              <span id="unreadChatBadge" class="hidden px-1.5 py-0.2 bg-sky-500 text-[11px] rounded-full text-white font-bold">0</span>
+            </button>
+            <button onclick="switchTab('orders')" id="nav-orders" class="px-3 py-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition">My Orders</button>
+            <button onclick="switchTab('admin')" id="nav-admin" class="hidden px-3 py-2 rounded-md text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-900/50 transition">Admin Panel</button>
+          </div>
+        </div>
+
+        <div class="hidden sm:block flex-1 max-w-xs mx-4">
+          <input type="text" id="searchInput" oninput="renderMarketplace()" placeholder="Search products..." 
+                 class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <!-- User Identity Badge -->
+        <div id="userProfileNav" class="flex items-center gap-2"></div>
+
+      </div>
+    </div>
+  </nav>
+
+  <!-- NOTIFICATION TOAST -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform transition-all duration-300 translate-y-20 opacity-0 pointer-events-none bg-slate-900 border border-slate-700 text-slate-200 px-4 py-3 rounded-lg shadow-2xl text-xs flex items-center gap-2"></div>
+
+  <!-- LIGHTBOX -->
+  <div id="imageLightbox" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4" onclick="closeLightbox()">
+    <img id="lightboxImg" src="" class="max-w-[500px] max-h-[500px] w-full h-auto rounded-xl shadow-2xl border border-slate-700">
+  </div>
+
+  <!-- MAIN VIEWPORT -->
+  <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
+    
+    <!-- VIEW 1: MARKETPLACE FEED -->
+    <section id="view-marketplace" class="space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <div class="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 mr-2">Filter:</span>
+          <button onclick="setCategory('All')" class="cat-filter active-filter px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white" data-category="All">All Items</button>
+          <button onclick="setCategory('Digital Goods')" class="cat-filter px-3 py-1.5 text-xs font-medium rounded-md bg-slate-800 text-slate-300 hover:text-white" data-category="Digital Goods">Digital Goods</button>
+          <button onclick="setCategory('Services')" class="cat-filter px-3 py-1.5 text-xs font-medium rounded-md bg-slate-800 text-slate-300 hover:text-white" data-category="Services">Services</button>
+          <button onclick="setCategory('Electronics')" class="cat-filter px-3 py-1.5 text-xs font-medium rounded-md bg-slate-800 text-slate-300 hover:text-white" data-category="Electronics">Electronics</button>
+        </div>
+
+        <button onclick="switchTab('vendor')" class="text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-lg transition flex items-center gap-1.5">
+          <span>+ New Listing</span>
+        </button>
+      </div>
+
+      <div id="listingsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+    </section>
+
+    <!-- VIEW 2: VENDOR STUDIO -->
+    <section id="view-vendor" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <div class="border-b border-slate-800 pb-4 mb-6">
+          <h2 class="text-lg font-bold text-white">Create Product Listing</h2>
+          <p class="text-xs text-slate-400 mt-1">Specify your accepted cryptocurrency and wallet address. Images are processed to 500×500 px (optional).</p>
+        </div>
+
+        <form id="createListingForm" onsubmit="handleCreateListing(event)" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-medium text-slate-300 mb-1">Product Title *</label>
+              <input type="text" id="itemTitle" required placeholder="Item title" 
+                     class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Category *</label>
+              <select id="itemCategory" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                <option value="Digital Goods">Digital Goods</option>
+                <option value="Services">Services</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Vendor Store Pseudonym *</label>
+              <input type="text" id="itemVendor" required placeholder="e.g., NovaStore" 
+                     class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Price Amount *</label>
+              <input type="number" step="any" id="itemPrice" required placeholder="25.00" 
+                     class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Custom Crypto Token / Coin *</label>
+              <input type="text" id="itemCrypto" required placeholder="e.g., USDT-TRC20, XMR, SOL, TON, BTC" 
+                     class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-medium text-slate-300 mb-1">Receiving Crypto Wallet Number / Address *</label>
+              <input type="text" id="itemWallet" required placeholder="Wallet address for receiving payments..." 
+                     class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono">
+            </div>
+
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-medium text-slate-300 mb-1">Listing Image (Optional - will be processed to 500×500)</label>
+              <input type="file" id="itemImageInput" accept="image/*" 
+                     class="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+            </div>
+
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-medium text-slate-300 mb-1">Description & Delivery Instructions *</label>
+              <textarea id="itemDesc" rows="3" required placeholder="Item description, terms..." 
+                        class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500"></textarea>
+            </div>
+
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-6 py-2.5 rounded-lg transition shadow-md">
+              Publish Listing
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <h3 class="text-base font-bold text-white mb-4">Your Active Catalog</h3>
+        <div id="vendorCatalogList" class="divide-y divide-slate-800"></div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: TELEGRAM MESSENGER -->
+    <section id="view-messenger" class="hidden">
+      <div class="bg-tg-bg border border-tg-border rounded-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-[75vh]">
+        
+        <div class="w-full md:w-80 bg-tg-panel border-r border-tg-border flex flex-col">
+          <div class="p-3.5 border-b border-tg-border flex items-center justify-between">
+            <span class="font-bold text-sm text-white flex items-center gap-2">Direct Chats</span>
+            <span class="text-[11px] text-tg-textMuted font-mono" id="totalChatsCount">0 chats</span>
+          </div>
+          <div id="telegramChatList" class="flex-1 overflow-y-auto divide-y divide-tg-border/50"></div>
+        </div>
+
+        <div class="flex-1 flex flex-col bg-tg-bg relative">
+          <div id="activeChatHeader" class="p-3.5 bg-tg-panel border-b border-tg-border flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div id="activeChatAvatar" class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-white text-sm">?</div>
+              <div>
+                <div id="activeChatName" class="font-bold text-sm text-white">Select a conversation</div>
+                <div id="activeChatStatus" class="text-xs text-tg-textMuted">No active dialogue</div>
+              </div>
+            </div>
+            <div id="activeChatOrderBadge" class="hidden text-xs bg-tg-hover px-3 py-1 rounded-full text-slate-300 font-mono border border-tg-border"></div>
+          </div>
+
+          <div id="chatMessagesScroll" class="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col">
+            <div class="my-auto text-center text-tg-textMuted text-xs">
+              Select an order dialogue from the sidebar.
+            </div>
+          </div>
+
+          <div id="chatPendingImageBar" class="hidden px-4 py-2 bg-tg-panel border-t border-tg-border flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <img id="chatPendingImgThumb" class="w-10 h-10 rounded object-cover border border-slate-700">
+              <span class="text-xs text-slate-300">Image attached (500×500)</span>
+            </div>
+            <button onclick="cancelChatImageAttachment()" class="text-xs text-rose-400 hover:underline">Remove</button>
+          </div>
+
+          <form id="chatInputForm" onsubmit="handleSendChatMessage(event)" class="p-3 bg-tg-panel border-t border-tg-border flex items-center gap-2">
+            <label for="chatFileInput" class="p-2 text-tg-textMuted hover:text-tg-accent cursor-pointer rounded-lg hover:bg-tg-hover transition" title="Send 500x500 Image">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </label>
+            <input type="file" id="chatFileInput" accept="image/*" class="hidden" onchange="handleChatImageSelection(event)">
+
+            <input type="text" id="chatMessageInput" disabled placeholder="Write a message..." 
+                   class="flex-1 bg-tg-bg border border-tg-border rounded-xl px-4 py-2.5 text-xs text-slate-100 placeholder-tg-textMuted focus:outline-none focus:border-tg-accent disabled:opacity-40">
+            <button type="submit" id="chatSendButton" disabled class="bg-tg-accent hover:bg-sky-600 disabled:opacity-40 text-white rounded-xl px-4 py-2.5 text-xs font-semibold transition">
+              Send
+            </button>
+          </form>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEW 4: MY ORDERS -->
+    <section id="view-orders" class="hidden space-y-4">
+      <div>
+        <h2 class="text-xl font-bold text-white">Your Orders</h2>
+        <p class="text-xs text-slate-400">Review transfer details, memo codes, and open order chats.</p>
+      </div>
+      <div id="ordersContainer" class="space-y-4"></div>
+    </section>
+
+    <!-- VIEW 5: ADMIN SUPERPOWERS -->
+    <section id="view-admin" class="hidden space-y-8">
+      <div class="bg-rose-950/20 border border-rose-900/60 p-5 rounded-2xl">
+        <span class="text-xs font-mono font-bold text-rose-400 uppercase tracking-widest">[ ROOT ACCESS ACTIVE ]</span>
+        <h2 class="text-lg font-bold text-white mt-1">Super-Admin Oversight</h2>
+        <p class="text-xs text-slate-400">Total control over all accounts, orders, listings, and conversations.</p>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h3 class="text-base font-bold text-white mb-3">Users Directory</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400">
+                <th class="pb-2">User ID</th>
+                <th class="pb-2">Username</th>
+                <th class="pb-2">Access Key</th>
+                <th class="pb-2">Role</th>
+                <th class="pb-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminUsersTable" class="divide-y divide-slate-800/60 font-mono"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h3 class="text-base font-bold text-white mb-3">Global Marketplace Inventory</h3>
+        <div id="adminListingsContainer" class="divide-y divide-slate-800"></div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h3 class="text-base font-bold text-white mb-2">Omniscient Messenger Inspection</h3>
+        <p class="text-xs text-slate-400 mb-4">Read every dialogue and photo exchanged on the platform.</p>
+        <div id="adminChatSnoopContainer" class="space-y-3"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- CHECKOUT MODAL -->
+  <div id="checkoutModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl p-6 relative">
+      <button onclick="closeCheckoutModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+
+      <div id="checkoutStep1" class="space-y-4">
+        <div class="border-b border-slate-800 pb-3">
+          <span class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Direct Crypto Order</span>
+          <h3 id="checkoutItemTitle" class="text-lg font-bold text-white mt-0.5">Product</h3>
+        </div>
+
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-sm">
+          <div class="flex justify-between text-slate-400">
+            <span>Price:</span>
+            <span id="checkoutPriceDisplay" class="font-bold text-emerald-400 font-mono">0.00</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Merchant:</span>
+            <span id="checkoutVendorDisplay" class="text-slate-200">-</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Delivery Note or Contact Info (Optional)</label>
+          <textarea id="checkoutNote" rows="2" placeholder="Contact handle, email, or shipping details..." 
+                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500"></textarea>
+        </div>
+
+        <button onclick="generateOrderAndChat()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg text-xs transition">
+          Generate Crypto Invoice & Open Private Chat
+        </button>
+      </div>
+
+      <div id="checkoutStep2" class="space-y-4 hidden">
+        <div class="border-b border-slate-800 pb-3">
+          <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Invoice Generated</span>
+          <h3 class="text-base font-bold text-white mt-0.5">Payment Instructions</h3>
+        </div>
+
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 text-xs">
+          <div>
+            <span class="text-slate-400 block mb-0.5">Amount to Send:</span>
+            <div id="invoiceAmount" class="text-lg font-bold font-mono text-emerald-400">0.00</div>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-0.5">
+              <span class="text-slate-400">Vendor's Receiving Wallet:</span>
+              <button onclick="copyText('invoiceWallet', 'Wallet Address')" class="text-indigo-400 hover:underline">Copy</button>
+            </div>
+            <div id="invoiceWallet" class="p-2.5 bg-slate-900 border border-slate-800 rounded-lg font-mono text-[11px] text-slate-200 break-all select-all"></div>
+          </div>
+
+          <div class="bg-amber-950/40 border border-amber-800/80 p-3 rounded-lg space-y-1">
+            <div class="flex justify-between items-center">
+              <span class="font-bold text-amber-300">REQUIRED TRANSACTION MEMO / NOTE:</span>
+              <button onclick="copyText('invoiceMemo', 'Memo Code')" class="text-amber-300 hover:underline">Copy</button>
+            </div>
+            <div id="invoiceMemo" class="text-base font-bold font-mono text-white select-all">MEMO-000000</div>
+            <p class="text-[11px] text-amber-300/80">
+              Paste this memo code into your transaction note so the seller can match your payment.
+            </p>
+          </div>
+        </div>
+
+        <div class="pt-2 flex gap-3">
+          <button onclick="openChatForCurrentOrder()" class="flex-1 bg-tg-accent hover:bg-sky-600 text-white font-medium py-2.5 rounded-lg text-xs transition flex items-center justify-center gap-2">
+            <span>Open Telegram Chat with Vendor</span>
+          </button>
+          <button onclick="closeCheckoutModal()" class="px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs">Done</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- AUTH MODAL (SEPARATE SESSIONS FOR EACH TAB) -->
+  <div id="authModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative">
+      <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+
+      <div class="flex border-b border-slate-800 mb-5 text-xs">
+        <button onclick="switchAuthTab('key')" id="tabBtnKey" class="flex-1 pb-3 font-semibold border-b-2 border-indigo-500 text-white">Access Key</button>
+        <button onclick="switchAuthTab('register')" id="tabBtnRegister" class="flex-1 pb-3 font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200">Register</button>
+        <button onclick="switchAuthTab('admin')" id="tabBtnAdmin" class="flex-1 pb-3 font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200">Admin</button>
+      </div>
+
+      <!-- Key Login -->
+      <form id="formAuthKey" onsubmit="handleKeyLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Enter Your XXXXXX-0000 Key</label>
+          <input type="text" id="loginAccessKey" required placeholder="e.g., K9X2A7-4821" 
+                 class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm font-mono text-center tracking-widest text-emerald-400 uppercase placeholder-slate-700 focus:outline-none focus:border-indigo-500">
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg text-xs transition">
+          Unlock Account
+        </button>
+      </form>
+
+      <!-- Registration Form -->
+      <form id="formAuthRegister" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Choose Username *</label>
+          <input type="text" id="regUsername" required placeholder="e.g., CyberTrader" 
+                 class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-xs font-medium text-slate-300">Your Passwordless Key (XXXXXX-0000)</label>
+            <button type="button" onclick="rollNewAccessKey()" class="text-[11px] text-indigo-400 hover:underline">Regenerate</button>
+          </div>
+          <input type="text" id="regAccessKey" required 
+                 class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-sm font-mono text-center tracking-widest text-emerald-400 uppercase focus:outline-none focus:border-indigo-500">
+          <p class="text-[11px] text-slate-500 mt-1">Copy this key to log in from other browsers.</p>
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg text-xs transition">
+          Create Account & Sign In
+        </button>
+      </form>
+
+      <!-- Admin Login -->
+      <form id="formAuthAdmin" onsubmit="handleAdminLogin(event)" class="space-y-4 hidden">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Admin Username</label>
+          <input type="text" id="adminUsername" required placeholder="Username" 
+                 class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-rose-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Admin Password</label>
+          <input type="password" id="adminPassword" required placeholder="••••••••••••" 
+                 class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-rose-500">
+        </div>
+        <button type="submit" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-medium py-2.5 rounded-lg text-xs transition">
+          Authenticate Root Clearance
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC & REAL-TIME DISK COMMITS -->
+  <script>
+    // sessionStorage makes each tab an independent user!
+    const TAB_SESSION_KEY = 'onimart_tab_identity_v4';
+    const LOCAL_FALLBACK_KEY = 'onimart_offline_cache';
+
+    let isServerLive = false;
+    let appDB = { users: [], listings: [], orders: [], chats: [] };
+
+    // Push changes directly to server -> onimart.json file on disk
+    async function syncDatabase() {
+      if (isServerLive) {
+        try {
+          await fetch('/api/db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appDB)
+          });
+        } catch (e) {
+          console.error('Failed to sync to server');
+        }
+      } else {
+        localStorage.setItem(LOCAL_FALLBACK_KEY, JSON.stringify(appDB));
+      }
+    }
+
+    // Fetch live updates every 1.5 seconds from onimart.json
+    async function pollLiveDatabase() {
+      try {
+        const res = await fetch('/api/db', { cache: 'no-store' });
+        if (res.ok) {
+          appDB = await res.json();
+          if (!isServerLive) {
+            isServerLive = true;
+            document.getElementById('connIndicator').className = 'h-2 w-2 rounded-full bg-emerald-500 animate-pulse';
+            document.getElementById('connStatusText').innerText = 'Connected: Live sync active with onimart.json';
+          }
+          renderCurrentViews();
+          return;
+        }
+      } catch (err) {
+        // Offline / file:// mode
+        isServerLive = false;
+        document.getElementById('connIndicator').className = 'h-2 w-2 rounded-full bg-amber-500';
+        document.getElementById('connStatusText').innerText = 'Local Offline Mode (file://). Run "node server.js" to save to onimart.json.';
+        const cached = localStorage.getItem(LOCAL_FALLBACK_KEY);
+        if (cached) {
+          try { appDB = JSON.parse(cached); } catch(e){}
+        }
+        renderCurrentViews();
+      }
+    }
+
+    function renderCurrentViews() {
+      renderMarketplace();
+      renderVendorCatalog();
+      renderTelegramChats();
+      renderOrders();
+      if (getSession()?.role === 'admin') renderAdminPanel();
+    }
+
+    // Session helpers (Independent per tab)
+    function getSession() {
+      const s = sessionStorage.getItem(TAB_SESSION_KEY);
+      return s ? JSON.parse(s) : null;
+    }
+    function setSession(u) {
+      if (u) sessionStorage.setItem(TAB_SESSION_KEY, JSON.stringify(u));
+      else sessionStorage.removeItem(TAB_SESSION_KEY);
+      updateUserNav();
+    }
+
+    /* 500x500 Image Compressor */
+    function processImageTo500x500(file) {
+      return new Promise((resolve, reject) => {
+        if (!file || !file.type.startsWith('image/')) return resolve(null);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 500;
+            canvas.height = 500;
+            const ctx = canvas.getContext('2d');
+
+            const scale = Math.max(500 / img.width, 500 / img.height);
+            const x = (500 - img.width * scale) / 2;
+            const y = (500 - img.height * scale) / 2;
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, 500, 500);
+            ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+          };
+          img.onerror = reject;
+          img.src = event.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function openLightbox(src) {
+      document.getElementById('lightboxImg').src = src;
+      document.getElementById('imageLightbox').classList.remove('hidden');
+    }
+    function closeLightbox() {
+      document.getElementById('imageLightbox').classList.add('hidden');
+    }
+
+    function generateCustomKey() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let part1 = '';
+      for (let i = 0; i < 6; i++) part1 += chars.charAt(Math.floor(Math.random() * chars.length));
+      let part2 = Math.floor(1000 + Math.random() * 9000);
+      return `${part1}-${part2}`;
+    }
+
+    function rollNewAccessKey() {
+      document.getElementById('regAccessKey').value = generateCustomKey();
+    }
+
+    function notify(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3200);
+    }
+
+    function copyText(elemId, label = 'Copied') {
+      const text = document.getElementById(elemId).innerText.trim();
+      navigator.clipboard.writeText(text).then(() => notify(`${label} copied to clipboard.`));
+    }
+
+    let currentCategory = 'All';
+
+    function switchTab(tab) {
+      ['marketplace', 'vendor', 'messenger', 'orders', 'admin'].forEach(t => {
+        const view = document.getElementById(`view-${t}`);
+        if (view) view.classList.add('hidden');
+        const nav = document.getElementById(`nav-${t}`);
+        if (nav) {
+          nav.classList.remove('bg-slate-800', 'text-white');
+          nav.classList.add('text-slate-400');
+        }
+      });
+
+      const activeView = document.getElementById(`view-${tab}`);
+      if (activeView) activeView.classList.remove('hidden');
+
+      const activeNav = document.getElementById(`nav-${tab}`);
+      if (activeNav) {
+        activeNav.classList.add('bg-slate-800', 'text-white');
+        activeNav.classList.remove('text-slate-400');
+      }
+
+      renderCurrentViews();
+    }
+
+    function setCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-filter').forEach(btn => {
+        if (btn.dataset.category === cat) {
+          btn.className = 'cat-filter active-filter px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white';
+        } else {
+          btn.className = 'cat-filter px-3 py-1.5 text-xs font-medium rounded-md bg-slate-800 text-slate-300 hover:text-white';
+        }
+      });
+      renderMarketplace();
+    }
+
+    function renderMarketplace() {
+      const grid = document.getElementById('listingsGrid');
+      const query = (document.getElementById('searchInput')?.value || '').toLowerCase();
+      const user = getSession();
+
+      const filtered = appDB.listings.filter(item => {
+        const matchCat = currentCategory === 'All' || item.category === currentCategory;
+        const matchQ = item.title.toLowerCase().includes(query) || item.desc.toLowerCase().includes(query) || item.crypto.toLowerCase().includes(query);
+        return matchCat && matchQ;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center bg-slate-900 rounded-2xl border border-slate-800 p-8">
+            <h3 class="text-base font-semibold text-white">Marketplace is Ready</h3>
+            <p class="text-xs text-slate-400 mt-1">Catalog is empty. Switch to Vendor Studio to publish your custom listing.</p>
+            <button onclick="switchTab('vendor')" class="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition">
+              Create Listing
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(item => `
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col justify-between hover:border-slate-700 transition">
+          <div>
+            ${item.image ? `
+              <div class="w-full h-48 bg-slate-950 overflow-hidden cursor-pointer" onclick="openLightbox('${item.image}')">
+                <img src="${item.image}" class="w-full h-full object-cover hover:scale-105 transition duration-300">
+              </div>
+            ` : ''}
+
+            <div class="p-5">
+              <div class="flex justify-between items-center mb-2 text-xs">
+                <span class="text-slate-400 font-medium">${item.category}</span>
+                <span class="px-2 py-0.5 rounded bg-indigo-950 border border-indigo-800 text-indigo-300 text-[11px] font-semibold">${item.crypto}</span>
+              </div>
+              <h3 class="text-base font-semibold text-white leading-snug mb-2">${item.title}</h3>
+              <p class="text-xs text-slate-400 line-clamp-3 mb-4 leading-relaxed">${item.desc}</p>
+            </div>
+          </div>
+
+          <div class="p-5 pt-0">
+            <div class="pt-4 border-t border-slate-800 flex justify-between items-baseline mb-3">
+              <div class="text-xs text-slate-500">Vendor: <span class="text-slate-300 font-medium">${item.vendor}</span></div>
+              <div class="text-base font-bold font-mono text-emerald-400">${item.price} <span class="text-xs font-sans">${item.crypto}</span></div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-2">
+              <button onclick="openCheckout('${item.id}')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-xs transition">
+                Order with ${item.crypto}
+              </button>
+              ${user && user.role === 'admin' ? `
+                <button onclick="adminDeleteListing('${item.id}')" class="text-xs text-rose-400 hover:underline py-1">
+                  [Admin Delete Listing]
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function handleCreateListing(e) {
+      e.preventDefault();
+      const title = document.getElementById('itemTitle').value.trim();
+      const category = document.getElementById('itemCategory').value;
+      const vendor = document.getElementById('itemVendor').value.trim();
+      const price = parseFloat(document.getElementById('itemPrice').value);
+      const crypto = document.getElementById('itemCrypto').value.trim().toUpperCase();
+      const wallet = document.getElementById('itemWallet').value.trim();
+      const desc = document.getElementById('itemDesc').value.trim();
+      const imageFile = document.getElementById('itemImageInput').files[0];
+
+      let base64Image = null;
+      if (imageFile) {
+        notify('Processing image to 500×500...');
+        base64Image = await processImageTo500x500(imageFile);
+      }
+
+      const user = getSession();
+      const newListing = {
+        id: 'item_' + Date.now(),
+        creatorUserId: user ? user.id : 'anon',
+        title,
+        category,
+        vendor,
+        price,
+        crypto,
+        wallet,
+        desc,
+        image: base64Image,
+        createdAt: new Date().toLocaleDateString()
+      };
+
+      appDB.listings.unshift(newListing);
+      await syncDatabase();
+      notify(`Listing published to onimart.json`);
+      e.target.reset();
+      switchTab('marketplace');
+    }
+
+    function renderVendorCatalog() {
+      const container = document.getElementById('vendorCatalogList');
+      if (appDB.listings.length === 0) {
+        container.innerHTML = `<div class="py-8 text-center text-xs text-slate-500">No active catalog listings.</div>`;
+        return;
+      }
+
+      container.innerHTML = appDB.listings.map(item => `
+        <div class="py-3 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3 min-w-0">
+            ${item.image ? `<img src="${item.image}" class="w-10 h-10 rounded object-cover border border-slate-700">` : ''}
+            <div>
+              <h4 class="text-sm font-semibold text-white truncate">${item.title}</h4>
+              <div class="text-xs text-slate-400 font-mono">${item.price} ${item.crypto} • Wallet: ${item.wallet.substring(0, 16)}...</div>
+            </div>
+          </div>
+          <button onclick="adminDeleteListing('${item.id}')" class="text-xs text-rose-400 hover:text-rose-300 font-medium px-2.5 py-1 rounded bg-slate-950 border border-slate-800">
+            Delete
+          </button>
+        </div>
+      `).join('');
+    }
+
+    let activeCheckoutItem = null;
+    let activeGeneratedOrder = null;
+
+    function openCheckout(itemId) {
+      const item = appDB.listings.find(l => l.id === itemId);
+      if (!item) return;
+
+      activeCheckoutItem = item;
+      document.getElementById('checkoutItemTitle').innerText = item.title;
+      document.getElementById('checkoutPriceDisplay').innerText = `${item.price} ${item.crypto}`;
+      document.getElementById('checkoutVendorDisplay').innerText = item.vendor;
+      document.getElementById('checkoutNote').value = '';
+
+      document.getElementById('checkoutStep1').classList.remove('hidden');
+      document.getElementById('checkoutStep2').classList.add('hidden');
+      document.getElementById('checkoutModal').classList.remove('hidden');
+    }
+
+    function closeCheckoutModal() {
+      document.getElementById('checkoutModal').classList.add('hidden');
+      activeCheckoutItem = null;
+    }
+
+    async function generateOrderAndChat() {
+      if (!activeCheckoutItem) return;
+      const user = getSession();
+
+      if (!user) {
+        notify('Please sign in or register to place an order.');
+        openAuthModal();
+        return;
+      }
+
+      const memoCode = 'MEMO-' + Math.floor(100000 + Math.random() * 900000);
+      const orderId = 'ORD-' + Math.floor(1000 + Math.random() * 9000);
+      const note = document.getElementById('checkoutNote').value.trim();
+
+      const newOrder = {
+        orderId: orderId,
+        buyerId: user.id,
+        buyerName: user.username,
+        vendorName: activeCheckoutItem.vendor,
+        vendorUserId: activeCheckoutItem.creatorUserId,
+        itemTitle: activeCheckoutItem.title,
+        price: activeCheckoutItem.price,
+        crypto: activeCheckoutItem.crypto,
+        wallet: activeCheckoutItem.wallet,
+        memoCode: memoCode,
+        customerNote: note,
+        date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'Awaiting Payment'
+      };
+
+      appDB.orders.unshift(newOrder);
+
+      const chatId = 'chat_' + orderId;
+      const initialMsg = {
+        id: 'msg_' + Date.now(),
+        sender: 'system',
+        text: `📦 ORDER #${orderId} CREATED\nItem: ${newOrder.itemTitle}\nAmount: ${newOrder.price} ${newOrder.crypto}\nWallet: ${newOrder.wallet}\nMemo Code: ${memoCode}`,
+        time: newOrder.date
+      };
+
+      appDB.chats.unshift({
+        chatId: chatId,
+        orderId: orderId,
+        buyerId: user.id,
+        buyerName: user.username,
+        vendorName: newOrder.vendorName,
+        itemTitle: newOrder.itemTitle,
+        crypto: newOrder.crypto,
+        price: newOrder.price,
+        wallet: newOrder.wallet,
+        memoCode: memoCode,
+        messages: [initialMsg],
+        lastUpdated: Date.now()
+      });
+
+      await syncDatabase();
+      activeGeneratedOrder = newOrder;
+
+      document.getElementById('invoiceAmount').innerText = `${newOrder.price} ${newOrder.crypto}`;
+      document.getElementById('invoiceWallet').innerText = newOrder.wallet;
+      document.getElementById('invoiceMemo').innerText = memoCode;
+
+      document.getElementById('checkoutStep1').classList.add('hidden');
+      document.getElementById('checkoutStep2').classList.remove('hidden');
+      notify(`Order ${orderId} saved to database!`);
+    }
+
+    function openChatForCurrentOrder() {
+      if (!activeGeneratedOrder) return;
+      const orderId = activeGeneratedOrder.orderId;
+      closeCheckoutModal();
+      switchTab('messenger');
+      selectTelegramChat('chat_' + orderId);
+    }
+
+    let currentSelectedChatId = null;
+    let pendingChatImageBase64 = null;
+
+    async function handleChatImageSelection(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      notify('Compressing image to 500×500...');
+      pendingChatImageBase64 = await processImageTo500x500(file);
+      if (pendingChatImageBase64) {
+        document.getElementById('chatPendingImgThumb').src = pendingChatImageBase64;
+        document.getElementById('chatPendingImageBar').classList.remove('hidden');
+      }
+    }
+
+    function cancelChatImageAttachment() {
+      pendingChatImageBase64 = null;
+      document.getElementById('chatFileInput').value = '';
+      document.getElementById('chatPendingImageBar').classList.add('hidden');
+    }
+
+    function renderTelegramChats() {
+      const user = getSession();
+      const chatListContainer = document.getElementById('telegramChatList');
+      const countEl = document.getElementById('totalChatsCount');
+
+      let visibleChats = appDB.chats;
+      if (!user || user.role !== 'admin') {
+        visibleChats = appDB.chats.filter(c => c.buyerId === user?.id || c.vendorName === user?.username);
+      }
+
+      countEl.innerText = `${visibleChats.length} chats`;
+
+      if (visibleChats.length === 0) {
+        chatListContainer.innerHTML = `<div class="p-6 text-center text-xs text-tg-textMuted">No active conversations.</div>`;
+        return;
+      }
+
+      chatListContainer.innerHTML = visibleChats.map(chat => {
+        const isSelected = chat.chatId === currentSelectedChatId;
+        const lastMsg = chat.messages[chat.messages.length - 1];
+        let preview = lastMsg ? (lastMsg.image ? '📷 [Photo 500×500] ' + (lastMsg.text || '') : lastMsg.text) : 'Conversation started';
+        if (preview.length > 35) preview = preview.substring(0, 35) + '...';
+
+        return `
+          <div onclick="selectTelegramChat('${chat.chatId}')" 
+               class="p-3 cursor-pointer transition flex items-center gap-3 ${isSelected ? 'bg-tg-hover' : 'hover:bg-tg-hover/50'}">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center font-bold text-white text-sm shrink-0">
+              ${(chat.buyerName || 'B')[0].toUpperCase()}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-baseline mb-0.5">
+                <span class="font-bold text-xs text-white truncate">${chat.buyerName} <span class="text-[10px] text-tg-textMuted font-normal">(${chat.orderId})</span></span>
+                <span class="text-[10px] text-tg-textMuted shrink-0">${lastMsg ? lastMsg.time : ''}</span>
+              </div>
+              <div class="text-[11px] text-tg-accent truncate">${chat.itemTitle}</div>
+              <div class="text-[11px] text-tg-textMuted truncate mt-0.5">${preview}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectTelegramChat(chatId) {
+      currentSelectedChatId = chatId;
+      renderTelegramChats();
+
+      const chat = appDB.chats.find(c => c.chatId === chatId);
+      if (!chat) return;
+
+      const user = getSession();
+
+      document.getElementById('activeChatName').innerText = `${chat.buyerName} — Seller: ${chat.vendorName}`;
+      document.getElementById('activeChatStatus').innerText = `Order: ${chat.orderId} • Memo: ${chat.memoCode}`;
+      document.getElementById('activeChatAvatar').innerText = (chat.buyerName || 'U')[0].toUpperCase();
+      
+      const badge = document.getElementById('activeChatOrderBadge');
+      badge.innerText = `${chat.price} ${chat.crypto}`;
+      badge.classList.remove('hidden');
+
+      document.getElementById('chatMessageInput').disabled = false;
+      document.getElementById('chatSendButton').disabled = false;
+
+      const scrollArea = document.getElementById('chatMessagesScroll');
+
+      scrollArea.innerHTML = chat.messages.map(m => {
+        if (m.sender === 'system') {
+          return `
+            <div class="mx-auto max-w-sm w-full bg-tg-panel border border-tg-border rounded-xl p-3.5 my-2 shadow-lg space-y-2">
+              <div class="flex items-center justify-between border-b border-tg-border pb-1">
+                <span class="text-xs font-bold text-tg-accent uppercase">Order Receipt</span>
+                <span class="text-[10px] text-tg-textMuted">${m.time}</span>
+              </div>
+              <div class="text-xs space-y-1">
+                <div>Item: <strong>${chat.itemTitle}</strong></div>
+                <div>Amount: <strong class="text-emerald-400 font-mono">${chat.price} ${chat.crypto}</strong></div>
+                <div class="text-[11px] text-slate-400">Wallet:</div>
+                <div class="bg-tg-bg p-1.5 rounded font-mono text-[10px] text-slate-300 break-all select-all border border-tg-border">${chat.wallet}</div>
+                <div class="text-[11px] font-bold text-amber-300 pt-1">Memo Code:</div>
+                <div class="bg-amber-950/50 text-amber-300 p-1.5 rounded font-mono font-bold text-xs select-all border border-amber-800">${chat.memoCode}</div>
+              </div>
+            </div>
+          `;
+        }
+
+        const isMe = user && (m.sender === user.username || user.role === 'admin');
+
+        return `
+          <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}">
+            <div class="max-w-[75%] px-3.5 py-2 rounded-2xl text-xs relative shadow ${isMe ? 'bg-tg-bubbleOut text-white' : 'bg-tg-bubbleIn text-slate-100 border border-tg-border'}">
+              <div class="text-[10px] font-semibold mb-1 ${isMe ? 'text-sky-200' : 'text-tg-accent'}">${m.sender}</div>
+              ${m.image ? `<img src="${m.image}" class="w-48 h-48 rounded-lg object-cover mb-2 border border-slate-700 cursor-pointer" onclick="openLightbox('${m.image}')">` : ''}
+              ${m.text ? `<p class="break-words leading-relaxed">${m.text}</p>` : ''}
+              <div class="text-[9px] text-right mt-1 text-slate-300/70"><span>${m.time}</span></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      scrollArea.scrollTop = scrollArea.scrollHeight;
+    }
+
+    async function handleSendChatMessage(e) {
+      e.preventDefault();
+      if (!currentSelectedChatId) return;
+
+      const input = document.getElementById('chatMessageInput');
+      const text = input.value.trim();
+
+      if (!text && !pendingChatImageBase64) return;
+
+      const user = getSession();
+      const idx = appDB.chats.findIndex(c => c.chatId === currentSelectedChatId);
+      if (idx === -1) return;
+
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const newMsg = {
+        id: 'msg_' + Date.now(),
+        sender: user.username,
+        text: text,
+        image: pendingChatImageBase64,
+        time: timeStr
+      };
+
+      appDB.chats[idx].messages.push(newMsg);
+      appDB.chats[idx].lastUpdated = Date.now();
+      await syncDatabase();
+
+      input.value = '';
+      cancelChatImageAttachment();
+      selectTelegramChat(currentSelectedChatId);
+    }
+
+    function renderOrders() {
+      const container = document.getElementById('ordersContainer');
+      if (appDB.orders.length === 0) {
+        container.innerHTML = `<div class="text-center py-12 bg-slate-900 border border-slate-800 rounded-xl p-6 text-xs text-slate-400">No orders recorded yet.</div>`;
+        return;
+      }
+
+      container.innerHTML = appDB.orders.map(ord => `
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+          <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+            <div>
+              <span class="text-xs text-slate-500 font-mono">${ord.orderId}</span>
+              <h3 class="text-sm font-bold text-white">${ord.itemTitle}</h3>
+            </div>
+            <div class="text-sm font-bold font-mono text-emerald-400">${ord.price} ${ord.crypto}</div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div>
+              <span class="text-slate-400 text-[11px]">Send to Wallet (${ord.crypto}):</span>
+              <div class="font-mono text-slate-200 bg-slate-950 p-2 rounded border border-slate-800 break-all select-all text-[11px] mt-0.5">${ord.wallet}</div>
+            </div>
+            <div>
+              <span class="text-amber-300 text-[11px] font-semibold">Transaction Memo Code:</span>
+              <div class="font-mono font-bold text-white bg-amber-950/40 p-2 rounded border border-amber-800/80 select-all text-[11px] mt-0.5">${ord.memoCode}</div>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center pt-2 border-t border-slate-800/60">
+            <span class="text-xs text-slate-500">Merchant: <strong class="text-slate-300">${ord.vendorName}</strong></span>
+            <button onclick="switchTab('messenger'); selectTelegramChat('chat_${ord.orderId}')" 
+                    class="bg-tg-accent hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition">
+              Open Telegram Order Chat
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderAdminPanel() {
+      const user = getSession();
+      if (!user || user.role !== 'admin') {
+        notify('Restricted: Admin access required.');
+        switchTab('marketplace');
+        return;
+      }
+
+      const userTable = document.getElementById('adminUsersTable');
+      userTable.innerHTML = appDB.users.map(u => `
+        <tr class="hover:bg-slate-950/50">
+          <td class="py-2.5 text-slate-500">${u.id}</td>
+          <td class="py-2.5 text-white font-bold">${u.username}</td>
+          <td class="py-2.5 text-emerald-400">${u.accessKey || '—'}</td>
+          <td class="py-2.5"><span class="px-2 py-0.5 rounded text-[10px] ${u.role === 'admin' ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-slate-800 text-slate-300'}">${u.role}</span></td>
+          <td class="py-2.5 text-right space-x-2">
+            <button onclick="adminRenameUser('${u.id}')" class="text-indigo-400 hover:underline">Rename</button>
+            ${u.username !== 'admin' ? `<button onclick="adminDeleteUser('${u.id}')" class="text-rose-400 hover:underline">Delete</button>` : ''}
+          </td>
+        </tr>
+      `).join('');
+
+      const listingsCont = document.getElementById('adminListingsContainer');
+      listingsCont.innerHTML = appDB.listings.map(l => `
+        <div class="py-3 flex justify-between items-center gap-4">
+          <div class="flex items-center gap-3">
+            ${l.image ? `<img src="${l.image}" class="w-10 h-10 rounded object-cover border border-slate-700">` : ''}
+            <div>
+              <div class="font-bold text-white text-xs">${l.title}</div>
+              <div class="text-slate-400 text-[11px] font-mono">${l.price} ${l.crypto} • Vendor: ${l.vendor}</div>
+            </div>
+          </div>
+          <button onclick="adminDeleteListing('${l.id}')" class="text-xs text-rose-400 hover:underline font-mono">
+            [Delete Listing]
+          </button>
+        </div>
+      `).join('');
+
+      const chatsCont = document.getElementById('adminChatSnoopContainer');
+      chatsCont.innerHTML = appDB.chats.map(c => `
+        <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-bold text-white">Order: ${c.orderId} — Buyer: <span class="text-emerald-400">${c.buyerName}</span> ⇄ Vendor: <span class="text-indigo-400">${c.vendorName}</span></div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Item: ${c.itemTitle} (${c.price} ${c.crypto}) • Messages: ${c.messages.length}</div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="switchTab('messenger'); selectTelegramChat('${c.chatId}')" class="px-3 py-1.5 bg-tg-accent text-white text-xs rounded-lg hover:bg-sky-600 transition">
+              Inspect Dialogue
+            </button>
+            <button onclick="adminDeleteChat('${c.chatId}')" class="px-3 py-1.5 bg-slate-800 text-rose-400 text-xs rounded-lg hover:bg-rose-950 transition">
+              Delete
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function adminRenameUser(userId) {
+      const newName = prompt('Enter new pseudonym for this user:');
+      if (!newName) return;
+      const u = appDB.users.find(x => x.id === userId);
+      if (u) {
+        u.username = newName.trim();
+        await syncDatabase();
+        notify('User renamed.');
+      }
+    }
+
+    async function adminDeleteUser(userId) {
+      if (!confirm('Permanently delete this user?')) return;
+      appDB.users = appDB.users.filter(x => x.id !== userId);
+      await syncDatabase();
+      notify('User deleted.');
+    }
+
+    async function adminDeleteListing(listingId) {
+      if (!confirm('Delete this product listing?')) return;
+      appDB.listings = appDB.listings.filter(x => x.id !== listingId);
+      await syncDatabase();
+      notify('Listing deleted.');
+    }
+
+    async function adminDeleteChat(chatId) {
+      if (!confirm('Permanently wipe this chat thread?')) return;
+      appDB.chats = appDB.chats.filter(c => c.chatId !== chatId);
+      await syncDatabase();
+      notify('Chat thread deleted.');
+    }
+
+    /* AUTH MODAL & FORM SWITCHING */
+    function openAuthModal() {
+      document.getElementById('authModal').classList.remove('hidden');
+      switchAuthTab('key');
+    }
+    function closeAuthModal() {
+      document.getElementById('authModal').classList.add('hidden');
+    }
+
+    function switchAuthTab(tab) {
+      const tabs = ['key', 'register', 'admin'];
+      tabs.forEach(t => {
+        const form = document.getElementById(`formAuth${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (t === tab) {
+          form.classList.remove('hidden');
+          btn.className = 'flex-1 pb-3 font-semibold border-b-2 border-indigo-500 text-white';
+        } else {
+          form.classList.add('hidden');
+          btn.className = 'flex-1 pb-3 font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200';
+        }
+      });
+
+      if (tab === 'register') rollNewAccessKey();
+    }
+
+    function handleKeyLogin(e) {
+      e.preventDefault();
+      const enteredKey = document.getElementById('loginAccessKey').value.trim().toUpperCase();
+      const user = appDB.users.find(u => u.accessKey && u.accessKey.toUpperCase() === enteredKey);
+
+      if (!user) {
+        notify('Key not found.');
+        return;
+      }
+
+      setSession(user);
+      closeAuthModal();
+      notify(`Logged in as ${user.username}!`);
+      renderCurrentViews();
+    }
+
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      const userField = document.getElementById('adminUsername').value.trim();
+      const passField = document.getElementById('adminPassword').value.trim();
+
+      if (userField === 'admin' && passField === 'adminofornet') {
+        let admin = appDB.users.find(u => u.role === 'admin');
+        if (!admin) {
+          admin = { id: 'usr_admin', username: 'admin', role: 'admin' };
+          appDB.users.unshift(admin);
+          syncDatabase();
+        }
+        setSession(admin);
+        closeAuthModal();
+        notify('Root Clearance Verified.');
+        switchTab('admin');
+      } else {
+        notify('Invalid administrative credentials.');
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const username = document.getElementById('regUsername').value.trim();
+      const accessKey = document.getElementById('regAccessKey').value.trim().toUpperCase();
+
+      if (!username) {
+        notify('Enter a username.');
+        return;
+      }
+
+      if (appDB.users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+        notify('Username taken.');
+        return;
+      }
+
+      const newUser = {
+        id: 'usr_' + Date.now(),
+        username: username,
+        accessKey: accessKey,
+        role: 'user',
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+
+      appDB.users.push(newUser);
+      await syncDatabase();
+      setSession(newUser);
+      closeAuthModal();
+      notify(`Account created for ${username}!`);
+      renderCurrentViews();
+    }
+
+    function handleLogout() {
+      setSession(null);
+      notify('Signed out.');
+      openAuthModal();
+    }
+
+    function updateUserNav() {
+      const user = getSession();
+      const container = document.getElementById('userProfileNav');
+      const adminNavBtn = document.getElementById('nav-admin');
+
+      if (!user) {
+        container.innerHTML = `
+          <button onclick="openAuthModal()" class="text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-lg transition">
+            Sign In / Register
+          </button>
+        `;
+        if (adminNavBtn) adminNavBtn.classList.add('hidden');
+        return;
+      }
+
+      const isAdmin = user.role === 'admin';
+      if (adminNavBtn) {
+        if (isAdmin) adminNavBtn.classList.remove('hidden');
+        else adminNavBtn.classList.add('hidden');
+      }
+
+      container.innerHTML = `
+        <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg">
+          <div class="text-right">
+            <div class="text-xs font-bold ${isAdmin ? 'text-rose-400' : 'text-white'}">${user.username}</div>
+            ${user.accessKey ? `<div class="text-[10px] font-mono text-emerald-400 cursor-pointer hover:underline" onclick="copyText('navKeyBadge', 'Access Key')" id="navKeyBadge">${user.accessKey}</div>` : ''}
+          </div>
+          <button onclick="handleLogout()" title="Sign Out" class="text-slate-400 hover:text-rose-400 text-xs ml-2">✕</button>
+        </div>
+      `;
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await pollLiveDatabase();
+      updateUserNav();
+      // Continuously poll every 1.5 seconds so both users see each other's live actions
+      setInterval(pollLiveDatabase, 1500);
+    });
+  </script>
+</body>
+</html>
