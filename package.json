@@ -1,8 +1,10 @@
 {
-  name onimart,
-  version 1.0.0,
-  main server.js,
-  scripts {
-    start node server.js
-  }
+  "name": "onimart",
+  "version": "1.0.0",
+  "description": "onionmarketplace",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
 }
